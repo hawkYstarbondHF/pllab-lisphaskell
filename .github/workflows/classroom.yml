@@ -1,0 +1,49 @@
+name: Autograding Tests
+'on':
+- push
+- repository_dispatch
+permissions:
+  checks: write
+  actions: read
+  contents: read
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Haskell Tests
+      id: haskell-tests
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: Haskell Tests
+        setup-command: curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org
+          | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 sudo sh ; source /home/codespace/.ghcup/env
+          ; cabal update ; cabal install --lib HUnit ; cabal install --lib silently
+        command: runghc HaskellProblemsTest.hs
+        timeout: 10
+        max-score: 50
+    - name: Lisp Tests
+      id: lisp-tests
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: Lisp Tests
+        setup-command: bash setup-lisp.bash
+        command: sbcl --script lisp-problems-test.lisp
+        input: ''
+        expected-output: |-
+          ;; Summary:
+          Passed:    20
+          Failed:     0
+          Skipped:    0
+        comparison-method: contains
+        timeout: 10
+        max-score: 50
+    - name: Autograding Reporter
+      uses: classroom-resources/autograding-grading-reporter@v1
+      env:
+        HASKELL-TESTS_RESULTS: "${{steps.haskell-tests.outputs.result}}"
+        LISP-TESTS_RESULTS: "${{steps.lisp-tests.outputs.result}}"
+      with:
+        runners: haskell-tests,lisp-tests
